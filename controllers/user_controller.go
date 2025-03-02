@@ -5,19 +5,27 @@ import (
 	"net/http"
 	"time"
 
+	database "github.com/NahomKeneni/go_jwt/databse"
 	"github.com/NahomKeneni/go_jwt/models"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 var Validator = validator.New()
+var UserCollection = database.OpenCollection(database.Client, "user")
 
-func HashPassward() {
-
+func HashPassward(Passward string) (string, err) {
+    bytes, err := bcrypt.GenerateFromPassward([]byte(Passward), 14)
+	if err != nil {
+		return "", err
+	}
+    return string(password), nil
 }
 
-func VerifyPassword() {
-    
+func VerifyPassword() gin.HandlerFunc {
+    return func(c *gin.Context) {
+
+	}
 }
 
 func Signup() gin.HandlerFunc {
@@ -27,17 +35,18 @@ func Signup() gin.HandlerFunc {
 		defer cancel()
 		if err := c.BindJSON(&user); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
 		}
 
 		validationErr := Validator.Struct(user)
 		if validatonErr != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"err":"error accured while cheecking for the validation"})
+			c.JSON(http.StatusBadRequest, gin.H{"error":"error accured while cheecking for the validation"})
 			return
 		}
         
 
 		count, err := database.UserCollection.CountDocuments(ctx, bsom.M{"email":user.Email})
-		if err := nil {
+		if err != nil {
 			c.JSON{http.StatusBadRequest, gin.H{"error": "error occured while cheecking for the count"}}
 			return
 		}
@@ -60,19 +69,26 @@ func Signup() gin.HandlerFunc {
 			return
 		}
         
-		user.Created_at = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
-		user.Updated_at = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+		user.Created_at, err = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+		user.Updated_at, err = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+        if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
 		user.ID = primitive.NewObjectID()
 		user.User_id = user.ID.Hex()
-		token, refresh_token, err = helpers.GenerateAllTokens(user.Email, user.First_name, user.Last_name, user.Uid, user.User_type)
+		token, refresh_token, err := helpers.GenerateAllTokens(user.Email, user.First_name, user.Last_name, user.Uid, user.User_type)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 		user.Token = &token
-		user.refresh_token = &refresh_token
+		user.Refresh_token = &refresh_token
 
-		rseultInsertionNumber, insertionErr :=database.UserCollection.InsertOne(ctx, user)
+		rseultInsertionNumber, insertionErr := UserCollection.InsertOne(ctx, user)
 		if insertionErr != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "error occured while inserting the uer detail in the database !"})
 		}
@@ -81,7 +97,7 @@ func Signup() gin.HandlerFunc {
 }
 
 func Login() gin.HandlerFunc{
-   return func {
+   return func(c *gin.Context) {
 	var ctx, cancel = context.WithTimeout(context.Background(), 100 * time.Second)
 	defer cancel()
 	var user models.User
@@ -93,17 +109,18 @@ func Login() gin.HandlerFunc{
 		return
 	}
 
-	err = database.userCollection.FindOne(ctx, bson.M{"email": user.Email}).Decode(&foundUser)
-       
-      c.JSON(http.StatusBadRequest, gin.H{"error": "error occured while cheecking for the user"})
-	  return
-   }
+err = database.userCollection.FindOne(ctx, bson.M{"email": user.Email}).Decode(&foundUser)
+if err != nil {
+	c.JSON(http.StatusBadRequest, gin.H{"error": "error occured while cheecking for the user"})
+	return
+}
 
-   err = VerifyPassword (user.Passward, foundUser.Passward)
+err = VerifyPassword(user.Passward, foundUser.Passward)
    if err != nil {
 	  c.JSON{http.StatusBadRequest, gin.H{"error":"this user is not authorize because its password is not matching"}}
    }
 
+}
 }
 
 func GetUsers() {
