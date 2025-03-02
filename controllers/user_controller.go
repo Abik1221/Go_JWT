@@ -17,7 +17,7 @@ func HashPassward() {
 }
 
 func VerifyPassword() {
-
+    
 }
 
 func Signup() gin.HandlerFunc {
@@ -103,7 +103,7 @@ func Login() gin.HandlerFunc{
    if err != nil {
 	  c.JSON{http.StatusBadRequest, gin.H{"error":"this user is not authorize because its password is not matching"}}
    }
-   
+
 }
 
 func GetUsers() {
