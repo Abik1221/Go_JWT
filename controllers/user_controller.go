@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/NahomKeneni/go_jwt/models"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -63,7 +64,11 @@ func Signup() gin.HandlerFunc {
 		user.Updated_at = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
 		user.ID = primitive.NewObjectID()
 		user.User_id = user.ID.Hex()
-		token, refresh_token, err = helpers.GenerateAllTokens(user.User_id, user.First_name, user.Last_name, user.)
+		token, refresh_token, err = helpers.GenerateAllTokens(user.Email, user.First_name, user.Last_name, user.Uid, user.User_type)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 		user.Token = &token
 		user.refresh_token = &refresh_token
 
@@ -75,8 +80,30 @@ func Signup() gin.HandlerFunc {
 	  }
 }
 
-func Login() {
+func Login() gin.HandlerFunc{
+   return func {
+	var ctx, cancel = context.WithTimeout(context.Background(), 100 * time.Second)
+	defer cancel()
+	var user models.User
 
+	var foundUser models.User
+
+	if err := c.BindJSON(&user); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	err = database.userCollection.FindOne(ctx, bson.M{"email": user.Email}).Decode(&foundUser)
+       
+      c.JSON(http.StatusBadRequest, gin.H{"error": "error occured while cheecking for the user"})
+	  return
+   }
+
+   err = VerifyPassword (user.Passward, foundUser.Passward)
+   if err != nil {
+	  c.JSON{http.StatusBadRequest, gin.H{"error":"this user is not authorize because its password is not matching"}}
+   }
+   
 }
 
 func GetUsers() {
