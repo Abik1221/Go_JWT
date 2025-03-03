@@ -19,7 +19,7 @@ func HashPassward(Passward string) (string, err) {
 	if err != nil {
 		return "", err
 	}
-    return string(password), nil
+    return string(bytes), nil
 }
 
 func VerifyPassword(userPaassword, providedPassword string) (bool, string){
@@ -122,18 +122,23 @@ func Login() gin.HandlerFunc{
 		return
 	}
 
-err = database.userCollection.FindOne(ctx, bson.M{"email": user.Email}).Decode(&foundUser)
-if err != nil {
+   err = database.userCollection.FindOne(ctx, bson.M{"email": user.Email}).Decode(&foundUser)
+   if err != nil {
 	c.JSON(http.StatusBadRequest, gin.H{"error": "error occured while cheecking for the user"})
 	return
 }
 
-msg, is_valid := VerifyPassword(user.Passward, foundUser.Passward)
-   if msg != nil {
+   msg, is_valid := VerifyPassword(user.Passward, foundUser.Passward)
+   if msg != nil && is_valid == false {
 	  c.JSON{http.StatusBadRequest, gin.H{"error": msg }}
 	  return
    }
 
+   token, refresh_token, err := helpers.GenerateAllTokens(foundUser.Email, foundUser.First_name, foundUser.Last_name, foundUser.Uid, foundUser.User_type)
+   if err != nil {
+	c.JSON{http.StatusBadRequest, gin.H{"error", err.Error()}}
+   }
+  
 }
 }
 
