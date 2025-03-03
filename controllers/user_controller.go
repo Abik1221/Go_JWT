@@ -22,13 +22,21 @@ func HashPassward(Passward string) (string, err) {
     return string(password), nil
 }
 
-func VerifyPassword() gin.HandlerFunc {
-    return func(c *gin.Context) {
+func VerifyPassword(userPaassword, providedPassword string) (bool, string){
+    err := bycrypt.CompareHashAndPassword([]byte(providedPassword), []byte(userPaassword))
+	msg := ""
+	check := true
 
+	if err != nil{
+		msg = "the pasword doesn't match please insert the correct password"
+		check = false
+		return check, msg
 	}
-}
 
-func Signup() gin.HandlerFunc {
+	return check, msg
+} 
+
+func Signup() gin.HandlerFunc { 
       return func (c* gin.Context){
 		var User = models.User
 		var ctx, cancel = context.WithTimeout(context.Background(), 100 * time.Second)
@@ -67,6 +75,11 @@ func Signup() gin.HandlerFunc {
 		if count > 0 {
 			c.JSON(http.StatusInternalServerError, gin.H{"error":"this user phone number already exists please change it"})
 			return
+		}
+
+		user.Passward , err := HashPassword(user.Password)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error":err.Error()})
 		}
         
 		user.Created_at, err = time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
@@ -115,9 +128,10 @@ if err != nil {
 	return
 }
 
-err = VerifyPassword(user.Passward, foundUser.Passward)
-   if err != nil {
-	  c.JSON{http.StatusBadRequest, gin.H{"error":"this user is not authorize because its password is not matching"}}
+msg, is_valid := VerifyPassword(user.Passward, foundUser.Passward)
+   if msg != nil {
+	  c.JSON{http.StatusBadRequest, gin.H{"error": msg }}
+	  return
    }
 
 }
