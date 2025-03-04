@@ -1,8 +1,11 @@
 package helpers
 
 import (
+	"context"
 	"os"
 	"time"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type SignedDetails struct {
@@ -43,5 +46,19 @@ func GenerateAllTokens(email string, firstname string, lastname string, userType
 		log.Panic(err)
 		return err
 	}
+}
+
+func UpdateAllTokens(signedToken string, signedRefreshToken string, userId string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 100 * time.Second)
+	var updateObj primitive.D
+	updateObj = append(updateObj, bson.E{"$set", bson.D{{"token", signedToken}, {"refresh_token", signedRefreshToken}}})
+
+	Updated_at, _ := time.Parse(time.RFC3339, time.Now().Format(time.RFC3339))
+	updateObj = append(updateObj, bson.E{"$set", bson.D{{"updated_at", Updated_at}}})
+
+	upsert := true
+	filter := bson.M{"user_id": userId}
+	_, err := UserCollection.UpdateOne(ctx, filter, updateObj, &options.UpdateOptions{Upsert: &upsert})
+	defer cancel()
 }
 

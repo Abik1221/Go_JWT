@@ -6,6 +6,7 @@ import (
 	"time"
 
 	database "github.com/NahomKeneni/go_jwt/databse"
+	"github.com/NahomKeneni/go_jwt/helpers"
 	"github.com/NahomKeneni/go_jwt/models"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -117,28 +118,33 @@ func Login() gin.HandlerFunc{
 
 	var foundUser models.User
 
-	if err := c.BindJSON(&user); err != nil {
+	if err := c.BindJSON(&foundUser); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-   err = database.userCollection.FindOne(ctx, bson.M{"email": user.Email}).Decode(&foundUser)
-   if err != nil {
-	c.JSON(http.StatusBadRequest, gin.H{"error": "error occured while cheecking for the user"})
-	return
-}
-
    msg, is_valid := VerifyPassword(user.Passward, foundUser.Passward)
-   if msg != nil && is_valid == false {
+   if is_valid == false {
 	  c.JSON{http.StatusBadRequest, gin.H{"error": msg }}
 	  return
    }
 
-   token, refresh_token, err := helpers.GenerateAllTokens(foundUser.Email, foundUser.First_name, foundUser.Last_name, foundUser.Uid, foundUser.User_type)
+   if foundUser.Email == "" {
+	c.JSON(http.StatusInternalServerError, gin.H{"error":"user not found"})
+   }
+
+   token, refresh_token, err := helpers.GenerateAllTokens(&foundUser.Email, &foundUser.First_name, &foundUser.Last_name, &foundUser.Uid, &foundUser.User_type)
    if err != nil {
 	c.JSON{http.StatusBadRequest, gin.H{"error", err.Error()}}
    }
-  
+   helpers.UpdateAllTokens(&foundUser.User_Id, &token, &refresh_token)
+
+    err = database.userCollection.FindOne(ctx, bson.M{"email": user.Email}).Decode(&foundUser)
+    if err != nil {
+	  c.JSON(http.StatusBadRequest, gin.H{"error": "error occured while cheecking for the user"})
+	  return
+    }
+  c.JSON(http.StatusOK, foundUser)
 }
 }
 
